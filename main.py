@@ -32,7 +32,7 @@ warrior_data = [warrior_size, warrior_scale, warrior_offset]
 #wizard
 wizard_size = 250
 wizard_scale = 3
-wizard_offset = [72, 56]
+wizard_offset = [112, 107]
 wizard_data = [wizard_size, wizard_scale, wizard_offset]
 
 
@@ -40,8 +40,8 @@ wizard_data = [wizard_size, wizard_scale, wizard_offset]
 bg_image = pygame.image.load("assests/images/background/background.jpg").convert_alpha()
 
 #load spritesheets
-warrior_sheet = pygame.image.load("assests/images/warrior/Sprites/warrior.jpg").convert_alpha()
-wizard_sheet = pygame.image.load("assests/images/wizard/Sprites/wizard.jpg").convert_alpha()
+warrior_sheet = pygame.image.load("assests/images/warrior/Sprites/warrior.png").convert_alpha()
+wizard_sheet = pygame.image.load("assests/images/wizard/Sprites/wizard.png").convert_alpha()
 
 #define number of steps in each animation
 warrior_animation_steps = [10, 8, 1, 7, 7, 3, 7]
@@ -81,7 +81,10 @@ while run:
 
     #move fighters
     fighter_1.move(screen_width, screen_height, screen, fighter_2)
-
+    
+    #update fighters
+    fighter_1.update()
+    fighter_2.update()
     
     #draw fighters
     fighter_1.draw(screen)
