@@ -21,6 +21,10 @@ red = (255, 0, 0)
 yellow = (255, 255, 0)
 white = (255, 255, 255)
 
+#define game variables
+intro_count = 3
+last_count_update = pygame.time.get_ticks()
+
 
 #define fighter variables
 #warrior
@@ -47,6 +51,9 @@ wizard_sheet = pygame.image.load("assests/images/wizard/Sprites/wizard.png").con
 warrior_animation_steps = [10, 8, 1, 7, 7, 3, 7]
 wizard_animation_steps = [8, 8, 1, 8, 8, 3, 7]
 
+#define fonts
+count_font = pygame.font.Font("assests/fonts/turok.ttf", 80)
+score_font = pygame.font.Font("assests/fonts/turok.ttf", 30)
 
 #function for drawing background
 def draw_bg():
@@ -78,10 +85,17 @@ while run:
     #show player stats
     draw_health_bar(fighter_1.health, 20, 20)
     draw_health_bar(fighter_2.health, 580, 20)
-
-    #move fighters
-    fighter_1.move(screen_width, screen_height, screen, fighter_2)
-    fighter_2.move(screen_width, screen_height, screen, fighter_1)
+    
+    #update coountdown
+    if intro_count <= 0:
+        # move fighters
+        fighter_1.move(screen_width, screen_height, screen, fighter_2)
+        fighter_2.move(screen_width, screen_height, screen, fighter_1)
+    else:
+        # update count timer
+        if(pygame.time.get_ticks() - last_count_update) >= 1000:
+            intro_count -= 1
+            last_count_update = pygame.time.get_ticks()
     
     #update fighters
     fighter_1.update()
