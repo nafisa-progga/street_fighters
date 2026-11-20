@@ -41,7 +41,7 @@ class Fighter:
         return animation_list
     
     
-    def move(self, screen_width, screen_height, surface, target):
+    def move(self, screen_width, screen_height, surface, target, round_over):
         speed = 10
         gravity = 2
         dx = 0
@@ -53,7 +53,7 @@ class Fighter:
         key = pygame.key.get_pressed()
 
         #can only perform other actions if not currently attacking
-        if self.attacking == False and self.alive == True:
+        if self.attacking == False and self.alive == True and round_over == False:
             
             #check player1 controls
             if self.player == 1:
