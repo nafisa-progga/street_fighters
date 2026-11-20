@@ -2,7 +2,7 @@ import pygame
 
 
 class Fighter:
-    def __init__(self, player, x, y, flip, data, sprite_sheet, animation_steps):
+    def __init__(self, player, x, y, flip, data, sprite_sheet, animation_steps, attack_fx, hit_fx, die_fx):
         self.player = player
         self.size = data[0]
         self.scale = data[1]
@@ -23,6 +23,10 @@ class Fighter:
         self.hit = False
         self.health = 100
         self.alive = True
+        self.attack_fx = attack_fx
+        self.hit_fx = hit_fx
+        self.die_fx = die_fx
+        self.death_sound_played = False
     
     
     def load_images(self, sprite_sheet, animation_steps):
@@ -135,6 +139,10 @@ class Fighter:
         if self.health <= 0:
             self.health = 0
             self.alive = False
+            if self.death_sound_played == False:
+                if self.die_fx:
+                    self.die_fx.play()
+                self.death_sound_played = True
             self.update_action(6) # 6:death
         
         elif self.hit == True:
@@ -190,10 +198,14 @@ class Fighter:
     def attack(self, surface, target):
         if self.attack_cooldown == 0:
             self.attacking = True
+            if self.attack_fx:
+                self.attack_fx.play()
             attacking_rect = pygame.Rect(self.rect.centerx - (2 * self.rect.width * self.flip), self.rect.y, 2*self.rect.width, self.rect.height)
             if attacking_rect.colliderect(target.rect):
                 target.health -= 10
                 target.hit = True
+                if target.hit_fx:
+                    target.hit_fx.play()
             #pygame.draw.rect(surface, (0, 255, 0), attacking_rect)
     
     

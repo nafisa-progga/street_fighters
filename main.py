@@ -23,9 +23,13 @@ white = (255, 255, 255)
 #define game variables
 intro_count = 3
 last_count_update = pygame.time.get_ticks()
-score = [0, 0] # player scores [p1, p2]
+score = [0, 0] # player scores [p1, p2] (no of rounds won)
+max_rounds = 3
+rounds_to_win = 2
+current_round = 1
 round_over = False
 round_over_cooldown = 2000
+match_over = False
 
 #define fighter variables
 #warrior
@@ -40,6 +44,22 @@ wizard_scale = 3
 wizard_offset = [112, 107]
 wizard_data = [wizard_size, wizard_scale, wizard_offset]
 
+#load music and sounds
+pygame.mixer.music.load("assests/audio/bg_music.mp3")
+pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.play(-1, 0.0, 5000)
+warrior_attack_fx = pygame.mixer.Sound("assests/audio/warrior_attack.wav")
+warrior_attack_fx.set_volume(0.5)
+wizard_attack_fx = pygame.mixer.Sound("assests/audio/wizard_attack.wav")
+wizard_attack_fx.set_volume(0.5)
+warrior_hit_fx = pygame.mixer.Sound("assests/audio/warrior_hit.wav")
+warrior_hit_fx.set_volume(0.5)
+wizard_hit_fx = pygame.mixer.Sound("assests/audio/wizard_hit.wav")
+wizard_hit_fx.set_volume(0.5)
+warrior_die_fx = pygame.mixer.Sound("assests/audio/warrior_die.wav")
+warrior_die_fx.set_volume(0.6)
+wizard_die_fx = pygame.mixer.Sound("assests/audio/wizard_die.wav")
+wizard_die_fx.set_volume(0.6)
 
 #load background image
 bg_image = pygame.image.load("assests/images/background/background.jpg").convert_alpha()
@@ -78,8 +98,8 @@ def draw_health_bar(health, x, y):
 
 
 #create two instances of fighters
-fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps)
-fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps)
+fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, warrior_hit_fx, warrior_die_fx)
+fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, wizard_hit_fx, wizard_die_fx)
 
 
 #game loop
@@ -94,14 +114,14 @@ while run:
     #show player stats
     draw_health_bar(fighter_1.health, 20, 20)
     draw_health_bar(fighter_2.health, 580, 20)
-    draw_text("P1-Warrior: " + str(score[0]), score_font, red, 20, 60 )
-    draw_text("P2-Wizard: " + str(score[1]), score_font, red, 580, 60 )
+    draw_text("P1-Warrior Rounds won: " + str(score[0]), score_font, red, 20, 60 )
+    draw_text("P2-Wizard Rounds won: " + str(score[1]), score_font, red, 580, 60 )
     
     #update coountdown
     if intro_count <= 0:
         # move fighters
-        fighter_1.move(screen_width, screen_height, screen, fighter_2, round_over)
-        fighter_2.move(screen_width, screen_height, screen, fighter_1, round_over)
+        fighter_1.move(screen_width, screen_height, screen, fighter_2, round_over or match_over)
+        fighter_2.move(screen_width, screen_height, screen, fighter_1, round_over or match_over)
     else:
         # display count timer
         draw_text(str(intro_count), count_font, red, screen_width/2, screen_height/3)
@@ -124,18 +144,35 @@ while run:
             score[1] += 1 # if player1 dies, player2 gets score
             round_over = True
             round_over_time = pygame.time.get_ticks()
+            if score[1] >= rounds_to_win or current_round >= max_rounds:
+                match_over = True
         elif fighter_2.alive == False:
             score[0] += 1 # if player2 dies, player1 gets score
             round_over = True
             round_over_time = pygame.time.get_ticks()
+            if score[0] >= rounds_to_win or current_round >= max_rounds:
+                match_over = True
     else:
         #display victory image
         screen.blit(victory_img, (360, 150))
+        if match_over:
+            if score[0] > score[1]:
+                draw_text("P1-Warrior Wins Match!", score_font, yellow, 350, 260)
+            elif score[1] > score[0]:
+                draw_text("P2-Wizard Wins Match!", score_font, yellow, 350, 260)
+            else:
+                draw_text("Match Draw!", score_font, yellow, 420, 260)
         if pygame.time.get_ticks() - round_over_time > round_over_cooldown:
             round_over = False
             intro_count = 3
-            fighter_1.move(screen_width, screen_height, screen, fighter_2)
-            fighter_2.move(screen_width, screen_height, screen, fighter_1)
+            if match_over:
+                score = [0, 0]
+                current_round = 1
+                match_over = False
+            else:
+                current_round += 1
+            fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, warrior_hit_fx, warrior_die_fx)
+            fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, wizard_hit_fx, wizard_die_fx)
     
     #event handler
     for event in pygame.event.get():
