@@ -1,8 +1,9 @@
 import pygame
 from fighter import Fighter
-
+from pygame import mixer
 
 pygame.init()
+mixer.init()
 
 screen_width = 1000
 screen_height = 600
@@ -44,7 +45,7 @@ wizard_data = [wizard_size, wizard_scale, wizard_offset]
 bg_image = pygame.image.load("assests/images/background/background.jpg").convert_alpha()
 
 #load victory image
-victory_img = pygame.image.load("assests/images/icons/victory.jpg").convert_alpha()
+victory_img = pygame.image.load("assests/images/icons/victory.png").convert_alpha()
 
 #load spritesheets
 warrior_sheet = pygame.image.load("assests/images/warrior/Sprites/warrior.png").convert_alpha()
@@ -55,8 +56,8 @@ warrior_animation_steps = [10, 8, 1, 7, 7, 3, 7]
 wizard_animation_steps = [8, 8, 1, 8, 8, 3, 7]
 
 #define fonts
-count_font = pygame.font.Font("assests/fonts/turok.ttf", 80)
-score_font = pygame.font.Font("assests/fonts/turok.ttf", 30)
+count_font = pygame.font.SysFont("arial,freesansbold,dejavusans", 80, bold=True)
+score_font = pygame.font.SysFont("arial,freesansbold,dejavusans", 30, bold=False)
 
 #function for drawing text
 def draw_text(text, font, text_color, x, y):
@@ -94,7 +95,7 @@ while run:
     draw_health_bar(fighter_1.health, 20, 20)
     draw_health_bar(fighter_2.health, 580, 20)
     draw_text("P1-Warrior: " + str(score[0]), score_font, red, 20, 60 )
-    draw_text("P2-Wizard: " + str(score[1]), score_font, white, 580, 60 )
+    draw_text("P2-Wizard: " + str(score[1]), score_font, red, 580, 60 )
     
     #update coountdown
     if intro_count <= 0:
