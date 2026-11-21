@@ -2,7 +2,7 @@ import pygame
 
 
 class Fighter:
-    def __init__(self, player, x, y, flip, data, sprite_sheet, animation_steps, attack_fx, hit_fx, die_fx):
+    def __init__(self, player, x, y, flip, data, sprite_sheet, animation_steps, attack_fx, die_fx):
         self.player = player
         self.size = data[0]
         self.scale = data[1]
@@ -24,9 +24,9 @@ class Fighter:
         self.health = 100
         self.alive = True
         self.attack_fx = attack_fx
-        self.hit_fx = hit_fx
         self.die_fx = die_fx
         self.death_sound_played = False
+        self.end_scale_multiplier = 1.0
     
     
     def load_images(self, sprite_sheet, animation_steps):
@@ -195,6 +195,17 @@ class Fighter:
                     self.attack_cooldown = 20
     
     
+    def set_match_end_pose(self, scale_multiplier):
+        self.action = 0
+        self.frame_index = 0
+        self.image = self.animation_list[0][0]
+        self.running = False
+        self.jump = False
+        self.attacking = False
+        self.hit = False
+        self.end_scale_multiplier = scale_multiplier
+
+
     def attack(self, surface, target):
         if self.attack_cooldown == 0:
             self.attacking = True
@@ -204,8 +215,6 @@ class Fighter:
             if attacking_rect.colliderect(target.rect):
                 target.health -= 10
                 target.hit = True
-                if target.hit_fx:
-                    target.hit_fx.play()
             #pygame.draw.rect(surface, (0, 255, 0), attacking_rect)
     
     
@@ -220,5 +229,16 @@ class Fighter:
     
     def draw(self, surface):
         img = pygame.transform.flip(self.image, self.flip, False) # image, x flip, y flip
+        orig_w, orig_h = img.get_width(), img.get_height()
+        draw_x = self.rect.x - (self.offset[0] * self.scale)
+        draw_y = self.rect.y - (self.offset[1] * self.scale)
+        if self.end_scale_multiplier != 1.0:
+            new_w = int(orig_w * self.end_scale_multiplier)
+            new_h = int(orig_h * self.end_scale_multiplier)
+            img = pygame.transform.scale(img, (new_w, new_h))
+            scale_offset_x = (new_w - orig_w) // 2
+            scale_offset_y = new_h - orig_h
+            draw_x -= scale_offset_x
+            draw_y -= scale_offset_y
         #pygame.draw.rect(surface, (255, 0, 0), self.rect)
-        surface.blit(img, (self.rect.x - (self.offset[0] * self.scale), self.rect.y - (self.offset[1] * self.scale) ))
+        surface.blit(img, (draw_x, draw_y))
