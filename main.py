@@ -1,6 +1,13 @@
+import os
+import sys
 import pygame
 from fighter import Fighter
 from pygame import mixer
+
+def resource_path(relative_path):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
 pygame.init()
 mixer.init()
@@ -49,27 +56,27 @@ wizard_offset = [112, 107]
 wizard_data = [wizard_size, wizard_scale, wizard_offset]
 
 #load music and sounds
-pygame.mixer.music.load("assests/audio/bg_music.mp3")
+pygame.mixer.music.load(resource_path("assests/audio/bg_music.mp3"))
 pygame.mixer.music.set_volume(0.5)
 pygame.mixer.music.play(-1, 0.0, 5000)
-warrior_attack_fx = pygame.mixer.Sound("assests/audio/warrior_attack.wav")
+warrior_attack_fx = pygame.mixer.Sound(resource_path("assests/audio/warrior_attack.wav"))
 warrior_attack_fx.set_volume(0.5)
-wizard_attack_fx = pygame.mixer.Sound("assests/audio/wizard_attack.wav")
+wizard_attack_fx = pygame.mixer.Sound(resource_path("assests/audio/wizard_attack.wav"))
 wizard_attack_fx.set_volume(0.5)
-die_fx = pygame.mixer.Sound("assests/audio/die.wav")
+die_fx = pygame.mixer.Sound(resource_path("assests/audio/die.wav"))
 die_fx.set_volume(0.6)
-victory_fx = pygame.mixer.Sound("assests/audio/victory.wav")
+victory_fx = pygame.mixer.Sound(resource_path("assests/audio/victory.wav"))
 victory_fx.set_volume(0.6)
 
 #load background image
-bg_image = pygame.image.load("assests/images/background/background.jpg").convert_alpha()
+bg_image = pygame.image.load(resource_path("assests/images/background/background.jpg")).convert_alpha()
 
 #load victory image
-victory_img = pygame.image.load("assests/images/icons/victory.png").convert_alpha()
+victory_img = pygame.image.load(resource_path("assests/images/icons/victory.png")).convert_alpha()
 
 #load spritesheets
-warrior_sheet = pygame.image.load("assests/images/warrior/Sprites/warrior.png").convert_alpha()
-wizard_sheet = pygame.image.load("assests/images/wizard/Sprites/wizard.png").convert_alpha()
+warrior_sheet = pygame.image.load(resource_path("assests/images/warrior/Sprites/warrior.png")).convert_alpha()
+wizard_sheet = pygame.image.load(resource_path("assests/images/wizard/Sprites/wizard.png")).convert_alpha()
 
 #define number of steps in each animation
 warrior_animation_steps = [10, 8, 1, 7, 7, 3, 7]
@@ -98,8 +105,8 @@ def draw_health_bar(health, x, y):
 
 
 #create two instances of fighters
-fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
 
 #main menu buttons
 start_button_rect = pygame.Rect(380, 240, 240, 65)
@@ -142,8 +149,8 @@ while run:
                     current_round = 1
                     round_over = False
                     match_over = False
-                    fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                    fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                    fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                    fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
                 elif exit_button_rect.collidepoint(event.pos):
                     run = False
 
@@ -227,8 +234,8 @@ while run:
                 current_round += 1
                 round_start_time = pygame.time.get_ticks()
                 last_count_update = pygame.time.get_ticks()
-                fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
     else:
         #display victory image
         victory_x = (screen_width - victory_img.get_width()) // 2
@@ -263,8 +270,8 @@ while run:
                 last_count_update = pygame.time.get_ticks()
                 score = [0, 0]
                 current_round = 1
-                fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
             elif main_menu_button_rect.collidepoint(event.pos):
                 round_over = False
                 match_over = False
@@ -274,8 +281,8 @@ while run:
                 last_count_update = pygame.time.get_ticks()
                 score = [0, 0]
                 current_round = 1
-                fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
     
     #update display
     pygame.display.update()

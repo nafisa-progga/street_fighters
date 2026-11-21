@@ -1,0 +1,20 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller build artifacts (keep dist/Brawler.exe)
+build/
+*.manifest
+dist/*
+!dist/
+!dist/Brawler.exe
+
+# Virtual environments / IDE / OS files
+.venv/
+venv/
+env/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
