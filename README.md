@@ -9,6 +9,17 @@ This is a 2-player local fighting game project where **P1-Warrior** and **P2-Wiz
 - Python
 - Pygame
 
+## 📸 Screenshots
+
+### Main Menu
+![Main Menu](assests/images/screenshots/main_menu.png)
+
+### Gameplay
+![Gameplay](assests/images/screenshots/gameplay.png)
+
+### Match Victory Screen
+![Match Victory Screen](assests/images/screenshots/victory_screen.png)
+
 ## 🙏 Acknowledgments & Credits
 - Tutorial Series: Built by following the amazing tutorial playlist by Coding With Russ. You can check out the playlist here: Coding With Russ Playlist.
 - Creator: Coding With Russ on YouTube.
