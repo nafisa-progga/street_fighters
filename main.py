@@ -105,8 +105,8 @@ def draw_health_bar(health, x, y):
 
 
 #create two instances of fighters
-fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
 
 #main menu buttons
 start_button_rect = pygame.Rect(380, 240, 240, 65)
@@ -149,8 +149,8 @@ while run:
                     current_round = 1
                     round_over = False
                     match_over = False
-                    fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                    fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                    fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                    fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
                 elif exit_button_rect.collidepoint(event.pos):
                     run = False
 
@@ -234,8 +234,8 @@ while run:
                 current_round += 1
                 round_start_time = pygame.time.get_ticks()
                 last_count_update = pygame.time.get_ticks()
-                fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
     else:
         #display victory image
         victory_x = (screen_width - victory_img.get_width()) // 2
@@ -270,8 +270,8 @@ while run:
                 last_count_update = pygame.time.get_ticks()
                 score = [0, 0]
                 current_round = 1
-                fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
             elif main_menu_button_rect.collidepoint(event.pos):
                 round_over = False
                 match_over = False
@@ -281,8 +281,8 @@ while run:
                 last_count_update = pygame.time.get_ticks()
                 score = [0, 0]
                 current_round = 1
-                fighter_1 = Fighter(1, 100, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
-                fighter_2 = Fighter(2, 650, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
+                fighter_1 = Fighter(1, 120, 310, False, warrior_data, warrior_sheet, warrior_animation_steps, warrior_attack_fx, die_fx)
+                fighter_2 = Fighter(2, 760, 310, True, wizard_data, wizard_sheet, wizard_animation_steps, wizard_attack_fx, die_fx)
     
     #update display
     pygame.display.update()
