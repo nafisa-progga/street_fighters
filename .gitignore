@@ -10,11 +10,16 @@ dist/*
 !dist/
 !dist/Brawler.exe
 
+# Local profile, server database, and secrets
+.env
+random.txt
+Brawler_profile.json
+users.json
+
 # Virtual environments / IDE / OS files
 .venv/
 venv/
 env/
-.env
 .vscode/
 .idea/
 Thumbs.db
