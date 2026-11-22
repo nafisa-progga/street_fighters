@@ -21,7 +21,7 @@ This is a 2-player local fighting game project where **P1-Warrior** and **P2-Wiz
 ![Match Victory Screen](assests/images/screenshots/victory_screen.png)
 
 ## 🙏 Acknowledgments & Credits
-- Tutorial Series: Built by following the amazing tutorial playlist by Coding With Russ. You can check out the playlist here: Coding With Russ Playlist.
+- Tutorial Series: Built by following the amazing tutorial by Coding With Russ. You can check out the tutorial here: https://youtu.be/s5bd9KMSSW4?si=qpVEI6qDXkVGl9bU.
 - Creator: Coding With Russ on YouTube.
 
 ## 🎮 Game Rules, Instructions & How to Play
