@@ -9,6 +9,7 @@ build/
 dist/*
 !dist/
 !dist/Brawler.exe
+!dist/Brawler_V2.exe
 
 # Local profile, server database, and secrets
 .env
