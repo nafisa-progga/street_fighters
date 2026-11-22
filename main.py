@@ -4,6 +4,7 @@ import random
 import socket
 import sys
 import threading
+import time
 import pygame
 from fighter import Fighter
 from pygame import mixer
@@ -45,6 +46,7 @@ load_env_file()
 SERVER_HOST = os.getenv("SERVER_HOST", "127.0.0.1")
 SERVER_PORT = int(os.getenv("SERVER_PORT", "5555"))
 PROFILE_FILE = os.path.join(get_writable_dir(), "Brawler_profile.json")
+RECONNECT_GRACE_SECONDS = 180.0
 
 
 def load_local_profile():
@@ -99,8 +101,14 @@ class OnlineClient:
         self.incoming_invites = []
         self.status_message = ""
         self.pending_match_start = None
+        self.pending_match_rejoin = None
         self.remote_input = {}
-        self.opponent_left = False
+        self.opponent_disconnected = False
+        self.opponent_disc_name = ""
+        self.opponent_disc_deadline = 0.0
+        self.opponent_reconnected_banner = ""
+        self.opponent_reconnected_until = 0.0
+        self.opponent_timeout_reason = None
 
     def connect(self, player_name):
         with self.lock:
@@ -121,7 +129,6 @@ class OnlineClient:
             s.settimeout(None)
             self.sock = s
             self.connected = True
-            self.opponent_left = False
             with self.lock:
                 self.status_message = "Connected; registering..."
 
@@ -187,12 +194,34 @@ class OnlineClient:
                             self.status_message = msg.get("text", "")
                         elif mtype == "match_start":
                             self.pending_match_start = msg
-                            self.opponent_left = False
+                            self.opponent_disconnected = False
+                            self.opponent_disc_name = ""
+                            self.opponent_disc_deadline = 0.0
+                            self.opponent_timeout_reason = None
+                            self.remote_input = {}
+                        elif mtype == "match_rejoined":
+                            self.pending_match_rejoin = msg
+                            self.opponent_timeout_reason = None
                             self.remote_input = {}
                         elif mtype == "relay":
                             self.remote_input = msg.get("data", {})
-                        elif mtype == "opponent_left":
-                            self.opponent_left = True
+                        elif mtype == "opponent_temp_disconnected":
+                            rem = float(msg.get("remaining_seconds", RECONNECT_GRACE_SECONDS))
+                            self.opponent_disconnected = True
+                            self.opponent_disc_name = msg.get("name") or "Opponent"
+                            self.opponent_disc_deadline = time.time() + max(0.0, rem)
+                        elif mtype == "opponent_reconnected":
+                            r_name = msg.get("name") or self.opponent_disc_name or "Opponent"
+                            self.opponent_disconnected = False
+                            self.opponent_disc_name = ""
+                            self.opponent_disc_deadline = 0.0
+                            self.opponent_reconnected_banner = f"{r_name} reconnected! Resuming match..."
+                            self.opponent_reconnected_until = time.time() + 3.0
+                        elif mtype == "opponent_reconnect_timeout":
+                            self.opponent_disconnected = False
+                            self.opponent_disc_name = ""
+                            self.opponent_disc_deadline = 0.0
+                            self.opponent_timeout_reason = msg.get("text") or "Opponent did not reconnect within 3 minutes."
 
                     if code_to_save or name_to_save:
                         save_local_profile(code_to_save or "", name_to_save or "Player")
@@ -482,6 +511,31 @@ def begin_match(c1_key, c2_key, name1, name2, mode="LOCAL_2P", slot=1):
     fighter_1, fighter_2 = create_fighter_pair(p1_char_key, p2_char_key, p1_display_name, p2_display_name)
 
 
+def return_to_main_menu(send_online_leave=True):
+    global match_type, round_over, match_over, screen_mode, intro_count
+    global round_start_time, last_count_update, score, current_round, fighter_1, fighter_2
+
+    if match_type == "ONLINE" and send_online_leave:
+        net.send({"type": "leave_match"})
+    with net.lock:
+        net.opponent_disconnected = False
+        net.opponent_disc_name = ""
+        net.opponent_disc_deadline = 0.0
+        net.opponent_reconnected_banner = ""
+        net.opponent_reconnected_until = 0.0
+
+    match_type = "LOCAL_2P"
+    round_over = False
+    match_over = False
+    screen_mode = "MAIN_MENU"
+    intro_count = 3
+    round_start_time = pygame.time.get_ticks()
+    last_count_update = pygame.time.get_ticks()
+    score = [0, 0]
+    current_round = 1
+    fighter_1, fighter_2 = create_fighter_pair("warrior", "wizard", "Player 1", "Player 2")
+
+
 # initial fighters (Warrior left, Wizard right)
 fighter_1, fighter_2 = create_fighter_pair(p1_char_key, p2_char_key, p1_display_name, p2_display_name)
 
@@ -506,6 +560,9 @@ add_friend_btn_rect = pygame.Rect(335, 250, 150, 40)
 back_lobby_btn_rect = pygame.Rect(60, 525, 170, 45)
 back_instructions_btn_rect = pygame.Rect(60, 525, 170, 45)
 
+# in-battle quit button (top-center gap between health bars so it doesn't block view)
+battle_quit_button_rect = pygame.Rect(455, 16, 90, 30)
+
 # match over buttons
 rematch_button_rect = pygame.Rect(295, 315, 195, 45)
 main_menu_button_rect = pygame.Rect(510, 315, 195, 45)
@@ -520,14 +577,29 @@ while run:
     # draw background
     draw_bg()
 
-    # check if server started an online match
+    # check online match lifecycle events
+    now_wall = time.time()
     with net.lock:
         started_msg = net.pending_match_start
         if started_msg:
             net.pending_match_start = None
-        opp_left = net.opponent_left
-        if opp_left:
-            net.opponent_left = False
+        rejoined_msg = net.pending_match_rejoin
+        if rejoined_msg:
+            net.pending_match_rejoin = None
+
+        opp_disc = net.opponent_disconnected
+        opp_disc_name = net.opponent_disc_name
+        opp_disc_rem = max(0, int(net.opponent_disc_deadline - now_wall)) if opp_disc else 0
+
+        reconn_banner = ""
+        if net.opponent_reconnected_banner and now_wall <= net.opponent_reconnected_until:
+            reconn_banner = net.opponent_reconnected_banner
+        elif net.opponent_reconnected_banner and now_wall > net.opponent_reconnected_until:
+            net.opponent_reconnected_banner = ""
+
+        timeout_reason = net.opponent_timeout_reason
+        if timeout_reason:
+            net.opponent_timeout_reason = None
 
     if started_msg:
         begin_match(
@@ -539,11 +611,22 @@ while run:
             slot=started_msg.get("your_slot", 1),
         )
 
-    if opp_left and screen_mode == "BATTLE" and match_type == "ONLINE":
-        match_type = "LOCAL_2P"
-        screen_mode = "ONLINE_LOBBY"
+    if rejoined_msg:
+        my_online_slot = rejoined_msg.get("your_slot", my_online_slot)
+        p1_char_key = rejoined_msg.get("p1_char", p1_char_key)
+        p2_char_key = rejoined_msg.get("p2_char", p2_char_key)
+        p1_display_name = rejoined_msg.get("p1_name", p1_display_name)
+        p2_display_name = rejoined_msg.get("p2_name", p2_display_name)
+        fighter_1.player_name = p1_display_name
+        fighter_2.player_name = p2_display_name
+        match_type = "ONLINE"
+        screen_mode = "BATTLE"
+
+    if timeout_reason:
         with net.lock:
-            net.status_message = "Opponent disconnected from match."
+            net.status_message = timeout_reason
+        if screen_mode == "BATTLE" and match_type == "ONLINE":
+            return_to_main_menu(send_online_leave=False)
 
     if screen_mode == "MAIN_MENU":
         draw_text("BRAWLER", count_font, yellow, 310, 65)
@@ -756,8 +839,17 @@ while run:
     draw_text(f"P2-{fighter_2.char_name} Rounds won: {score[1]}", score_font, red, 580, 60)
     draw_text(fighter_2.player_name, small_font, white, 580, 95)
 
-    # update countdown
-    if pygame.time.get_ticks() - round_start_time < round_banner_duration:
+    # non-intrusive QUIT button in top-center gap between health bars
+    pygame.draw.rect(screen, white, (battle_quit_button_rect.x - 1, battle_quit_button_rect.y - 1, battle_quit_button_rect.width + 2, battle_quit_button_rect.height + 2))
+    pygame.draw.rect(screen, red, battle_quit_button_rect)
+    draw_text("QUIT", small_font, white, battle_quit_button_rect.x + 23, battle_quit_button_rect.y + 5)
+
+    is_online_paused = (match_type == "ONLINE" and opp_disc and not match_over)
+
+    # update countdown / gameplay (paused while online opponent is temporarily disconnected)
+    if is_online_paused:
+        last_count_update = pygame.time.get_ticks()
+    elif pygame.time.get_ticks() - round_start_time < round_banner_duration:
         round_text = "ROUND " + str(current_round)
         round_img = count_font.render(round_text, True, red)
         screen.blit(round_img, ((screen_width - round_img.get_width()) // 2, screen_height / 3))
@@ -791,7 +883,7 @@ while run:
             last_count_update = pygame.time.get_ticks()
 
     # update fighters
-    if not match_over:
+    if not match_over and not is_online_paused:
         fighter_1.update()
         fighter_2.update()
 
@@ -805,51 +897,69 @@ while run:
     p2_name_tag = small_font.render(fighter_2.player_name, True, yellow)
     screen.blit(p2_name_tag, (fighter_2.rect.centerx - p2_name_tag.get_width() // 2, fighter_2.rect.bottom + 6))
 
+    # show reconnect / disconnection notice if applicable
+    if is_online_paused:
+        mins = opp_disc_rem // 60
+        secs = opp_disc_rem % 60
+        disc_banner = pygame.Surface((660, 74), pygame.SRCALPHA)
+        disc_banner.fill((*dark_panel, 220))
+        bx = (screen_width - 660) // 2
+        by = 120
+        screen.blit(disc_banner, (bx, by))
+        pygame.draw.rect(screen, yellow, (bx, by, 660, 74), 2)
+        msg_line = f"{opp_disc_name} disconnected — waiting to reconnect ({mins}:{secs:02d} left)"
+        m_img = small_font.render(msg_line, True, yellow)
+        screen.blit(m_img, (bx + (660 - m_img.get_width()) // 2, by + 26))
+    elif reconn_banner and not match_over:
+        r_img = ui_font.render(reconn_banner, True, green)
+        screen.blit(r_img, ((screen_width - r_img.get_width()) // 2, 125))
+
     # check for player defeat
     if match_over == False:
-        if round_over == False:
-            if fighter_1.alive == False:
-                score[1] += 1 # if player1 dies, player2 gets score
-                round_over = True
-                round_over_time = pygame.time.get_ticks()
-                if current_round >= max_rounds:
-                    match_over = True
-                    if victory_fx:
-                        victory_fx.play()
-                    if score[0] > score[1]:
-                        fighter_1.set_match_end_pose(1.3)
-                        fighter_2.set_match_end_pose(0.75)
-                    elif score[1] > score[0]:
-                        fighter_2.set_match_end_pose(1.3)
-                        fighter_1.set_match_end_pose(0.75)
-                    else:
-                        fighter_1.set_match_end_pose(1.0)
-                        fighter_2.set_match_end_pose(1.0)
-            elif fighter_2.alive == False:
-                score[0] += 1 # if player2 dies, player1 gets score
-                round_over = True
-                round_over_time = pygame.time.get_ticks()
-                if current_round >= max_rounds:
-                    match_over = True
-                    if victory_fx:
-                        victory_fx.play()
-                    if score[0] > score[1]:
-                        fighter_1.set_match_end_pose(1.3)
-                        fighter_2.set_match_end_pose(0.75)
-                    elif score[1] > score[0]:
-                        fighter_2.set_match_end_pose(1.3)
-                        fighter_1.set_match_end_pose(0.75)
-                    else:
-                        fighter_1.set_match_end_pose(1.0)
-                        fighter_2.set_match_end_pose(1.0)
-        else:
-            if pygame.time.get_ticks() - round_over_time > round_over_cooldown:
-                round_over = False
-                intro_count = 3
-                current_round += 1
-                round_start_time = pygame.time.get_ticks()
-                last_count_update = pygame.time.get_ticks()
-                fighter_1, fighter_2 = create_fighter_pair(p1_char_key, p2_char_key, p1_display_name, p2_display_name)
+        if not is_online_paused:
+            if round_over == False:
+                if fighter_1.alive == False:
+                    score[1] += 1 # if player1 dies, player2 gets score
+                    round_over = True
+                    round_over_time = pygame.time.get_ticks()
+                    if current_round >= max_rounds:
+                        match_over = True
+                        if victory_fx:
+                            victory_fx.play()
+                        if score[0] > score[1]:
+                            fighter_1.set_match_end_pose(1.3)
+                            fighter_2.set_match_end_pose(0.75)
+                        elif score[1] > score[0]:
+                            fighter_2.set_match_end_pose(1.3)
+                            fighter_1.set_match_end_pose(0.75)
+                        else:
+                            fighter_1.set_match_end_pose(1.0)
+                            fighter_2.set_match_end_pose(1.0)
+                elif fighter_2.alive == False:
+                    score[0] += 1 # if player2 dies, player1 gets score
+                    round_over = True
+                    round_over_time = pygame.time.get_ticks()
+                    if current_round >= max_rounds:
+                        match_over = True
+                        if victory_fx:
+                            victory_fx.play()
+                        if score[0] > score[1]:
+                            fighter_1.set_match_end_pose(1.3)
+                            fighter_2.set_match_end_pose(0.75)
+                        elif score[1] > score[0]:
+                            fighter_2.set_match_end_pose(1.3)
+                            fighter_1.set_match_end_pose(0.75)
+                        else:
+                            fighter_1.set_match_end_pose(1.0)
+                            fighter_2.set_match_end_pose(1.0)
+            else:
+                if pygame.time.get_ticks() - round_over_time > round_over_cooldown:
+                    round_over = False
+                    intro_count = 3
+                    current_round += 1
+                    round_start_time = pygame.time.get_ticks()
+                    last_count_update = pygame.time.get_ticks()
+                    fighter_1, fighter_2 = create_fighter_pair(p1_char_key, p2_char_key, p1_display_name, p2_display_name)
     else:
         # display victory image
         victory_x = (screen_width - victory_img.get_width()) // 2
@@ -875,24 +985,16 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-        if match_over and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if rematch_button_rect.collidepoint(event.pos):
-                if match_type == "ONLINE":
-                    p1_char_key, p2_char_key = randomize_characters_for_match()
-                begin_match(p1_char_key, p2_char_key, p1_display_name, p2_display_name, mode=match_type, slot=my_online_slot)
-            elif main_menu_button_rect.collidepoint(event.pos):
-                if match_type == "ONLINE":
-                    net.send({"type": "leave_match"})
-                match_type = "LOCAL_2P"
-                round_over = False
-                match_over = False
-                screen_mode = "MAIN_MENU"
-                intro_count = 3
-                round_start_time = pygame.time.get_ticks()
-                last_count_update = pygame.time.get_ticks()
-                score = [0, 0]
-                current_round = 1
-                fighter_1, fighter_2 = create_fighter_pair("warrior", "wizard", "Player 1", "Player 2")
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if not match_over and battle_quit_button_rect.collidepoint(event.pos):
+                return_to_main_menu(send_online_leave=True)
+            elif match_over:
+                if rematch_button_rect.collidepoint(event.pos):
+                    if match_type == "ONLINE":
+                        p1_char_key, p2_char_key = randomize_characters_for_match()
+                    begin_match(p1_char_key, p2_char_key, p1_display_name, p2_display_name, mode=match_type, slot=my_online_slot)
+                elif main_menu_button_rect.collidepoint(event.pos):
+                    return_to_main_menu(send_online_leave=True)
 
     # update display
     pygame.display.update()

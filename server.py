@@ -37,6 +37,7 @@ load_env_file()
 HOST = os.getenv("RELAY_HOST", "0.0.0.0")
 PORT = int(os.getenv("RELAY_PORT", "5555"))
 USERS_DB_FILE = os.path.join(os.path.abspath("."), "users.json")
+RECONNECT_GRACE_SECONDS = 180.0
 
 
 def generate_friend_code(existing_codes):
@@ -107,6 +108,113 @@ class RelayServer:
         except OSError:
             pass
 
+    def _get_other_slot(self, match_info, slot):
+        return 2 if slot == 1 else 1
+
+    def _get_slot_code(self, match_info, slot):
+        return match_info["p1_code"] if slot == 1 else match_info["p2_code"]
+
+    def _get_slot_name(self, match_info, slot):
+        return match_info["p1_name"] if slot == 1 else match_info["p2_name"]
+
+    def _clear_match_unlocked(self, match_id):
+        m = self.matches.pop(match_id, None)
+        if not m:
+            return
+        for code in (m["p1_code"], m["p2_code"]):
+            u = self.users_by_code.get(code)
+            if u and u.get("match_id") == match_id:
+                u["match_id"] = None
+                u["player_slot"] = None
+
+    def _mark_slot_disconnected_unlocked(self, user):
+        """Hold match open for RECONNECT_GRACE_SECONDS if user disconnects/leaves mid-match."""
+        mid = user.get("match_id")
+        slot = user.get("player_slot")
+        user["match_id"] = None
+        user["player_slot"] = None
+
+        if not mid or mid not in self.matches or slot not in (1, 2):
+            return
+
+        m = self.matches[mid]
+        now = time.time()
+        deadline = now + RECONNECT_GRACE_SECONDS
+        m["disconnected_slots"][slot] = {
+            "code": user["code"],
+            "name": user["name"],
+            "deadline": deadline,
+        }
+
+        other_slot = self._get_other_slot(m, slot)
+        other_user = self.users_by_code.get(self._get_slot_code(m, other_slot))
+        if other_user and other_user["online"] and other_user["conn"] and other_slot not in m["disconnected_slots"]:
+            self.send_msg(other_user["conn"], {
+                "type": "opponent_temp_disconnected",
+                "name": user["name"],
+                "slot": slot,
+                "remaining_seconds": int(RECONNECT_GRACE_SECONDS),
+            })
+
+    def _reconnect_user_to_match_unlocked(self, user):
+        """Restore user to an active match if within grace window; returns (match_info, slot) or None."""
+        now = time.time()
+        for mid, m in list(self.matches.items()):
+            disc = m.get("disconnected_slots", {})
+            for slot, info in list(disc.items()):
+                if info.get("code") == user["code"]:
+                    if now <= info.get("deadline", 0):
+                        del disc[slot]
+                        user["match_id"] = mid
+                        user["player_slot"] = slot
+                        if slot == 1:
+                            m["p1_name"] = user["name"]
+                        else:
+                            m["p2_name"] = user["name"]
+
+                        other_slot = self._get_other_slot(m, slot)
+                        other_user = self.users_by_code.get(self._get_slot_code(m, other_slot))
+                        if other_user and other_user["online"] and other_user["conn"]:
+                            self.send_msg(other_user["conn"], {
+                                "type": "opponent_reconnected",
+                                "name": user["name"],
+                                "slot": slot,
+                            })
+                        return m, slot
+                    else:
+                        del disc[slot]
+                        self._clear_match_unlocked(mid)
+        return None
+
+    def _timeout_watcher_loop(self):
+        while True:
+            time.sleep(1.0)
+            now = time.time()
+            expired_notifications = []
+            with self.lock:
+                for mid, m in list(self.matches.items()):
+                    disc = m.get("disconnected_slots", {})
+                    expired_slots = [s for s, info in disc.items() if now >= info.get("deadline", 0)]
+                    if expired_slots:
+                        for s in expired_slots:
+                            disc_name = disc[s].get("name", "Opponent")
+                            other_slot = self._get_other_slot(m, s)
+                            other_user = self.users_by_code.get(self._get_slot_code(m, other_slot))
+                            if other_user and other_user["online"] and other_user["conn"]:
+                                expired_notifications.append((
+                                    other_user["conn"],
+                                    other_user,
+                                    f"{disc_name} did not reconnect within 3 minutes.",
+                                ))
+                        self._clear_match_unlocked(mid)
+
+            for conn, remaining_user, reason in expired_notifications:
+                self.send_msg(conn, {
+                    "type": "opponent_reconnect_timeout",
+                    "text": reason,
+                })
+                self.notify_all_friends(remaining_user)
+
     def broadcast_friends_update(self, user):
         with self.lock:
             friend_list = []
@@ -151,6 +259,7 @@ class RelayServer:
                     if mtype == "register":
                         name = (msg.get("name") or "Player").strip()[:16] or "Player"
                         requested_code = (msg.get("code") or "").strip().upper()
+                        rejoined = None
                         with self.lock:
                             if requested_code and requested_code in self.users_by_code:
                                 current_user = self.users_by_code[requested_code]
@@ -172,12 +281,33 @@ class RelayServer:
                                 self.users_by_code[code] = current_user
                             self.clients_by_conn[conn] = current_user
                             self.save_users_db_unlocked()
+                            rejoined = self._reconnect_user_to_match_unlocked(current_user)
 
                         self.send_msg(conn, {
                             "type": "registered",
                             "code": current_user["code"],
                             "name": current_user["name"],
                         })
+                        if rejoined:
+                            m_info, slot = rejoined
+                            now = time.time()
+                            opp_slot = self._get_other_slot(m_info, slot)
+                            opp_disc = m_info.get("disconnected_slots", {}).get(opp_slot)
+                            opp_rem = max(0, int(opp_disc["deadline"] - now)) if opp_disc else 0
+                            self.send_msg(conn, {
+                                "type": "match_rejoined",
+                                "your_slot": slot,
+                                "match_id": m_info["match_id"],
+                                "p1_code": m_info["p1_code"],
+                                "p2_code": m_info["p2_code"],
+                                "p1_name": m_info["p1_name"],
+                                "p2_name": m_info["p2_name"],
+                                "p1_char": m_info["p1_char"],
+                                "p2_char": m_info["p2_char"],
+                                "opponent_disconnected": opp_disc is not None,
+                                "opponent_name": opp_disc["name"] if opp_disc else self._get_slot_name(m_info, opp_slot),
+                                "remaining_seconds": opp_rem,
+                            })
                         self.broadcast_friends_update(current_user)
                         self.notify_all_friends(current_user)
 
@@ -264,24 +394,36 @@ class RelayServer:
                                     "p2_name": current_user["name"],
                                     "p1_char": p1_char,
                                     "p2_char": p2_char,
+                                    "disconnected_slots": {},
                                 }
                                 self.matches[match_id] = match_info
 
+                                payload_base = {
+                                    "match_id": match_id,
+                                    "p1_code": host_user["code"],
+                                    "p2_code": current_user["code"],
+                                    "p1_name": host_user["name"],
+                                    "p2_name": current_user["name"],
+                                    "p1_char": p1_char,
+                                    "p2_char": p2_char,
+                                }
                                 self.send_msg(host_user["conn"], {
                                     "type": "match_start",
                                     "your_slot": 1,
-                                    **match_info,
+                                    **payload_base,
                                 })
                                 self.send_msg(current_user["conn"], {
                                     "type": "match_start",
                                     "your_slot": 2,
-                                    **match_info,
+                                    **payload_base,
                                 })
 
                     elif mtype == "relay" and current_user:
                         match_id = current_user.get("match_id")
                         if match_id and match_id in self.matches:
                             m = self.matches[match_id]
+                            if m.get("disconnected_slots"):
+                                continue
                             other_code = m["p2_code"] if current_user["code"] == m["p1_code"] else m["p1_code"]
                             other_user = self.users_by_code.get(other_code)
                             if other_user and other_user["online"] and other_user["conn"]:
@@ -293,19 +435,7 @@ class RelayServer:
 
                     elif mtype == "leave_match" and current_user:
                         with self.lock:
-                            mid = current_user.get("match_id")
-                            current_user["match_id"] = None
-                            current_user["player_slot"] = None
-                            if mid and mid in self.matches:
-                                m = self.matches[mid]
-                                other_code = m["p2_code"] if current_user["code"] == m["p1_code"] else m["p1_code"]
-                                other_user = self.users_by_code.get(other_code)
-                                if other_user:
-                                    other_user["match_id"] = None
-                                    other_user["player_slot"] = None
-                                    if other_user["online"] and other_user["conn"]:
-                                        self.send_msg(other_user["conn"], {"type": "opponent_left"})
-                                del self.matches[mid]
+                            self._mark_slot_disconnected_unlocked(current_user)
                         self.notify_all_friends(current_user)
 
         except (ConnectionResetError, BrokenPipeError, json.JSONDecodeError):
@@ -317,19 +447,7 @@ class RelayServer:
                 if current_user and current_user.get("conn") is conn:
                     current_user["online"] = False
                     current_user["conn"] = None
-                    mid = current_user.get("match_id")
-                    current_user["match_id"] = None
-                    current_user["player_slot"] = None
-                    if mid and mid in self.matches:
-                        m = self.matches[mid]
-                        other_code = m["p2_code"] if current_user["code"] == m["p1_code"] else m["p1_code"]
-                        other_user = self.users_by_code.get(other_code)
-                        if other_user:
-                            other_user["match_id"] = None
-                            other_user["player_slot"] = None
-                            if other_user["online"] and other_user["conn"]:
-                                self.send_msg(other_user["conn"], {"type": "opponent_left"})
-                        del self.matches[mid]
+                    self._mark_slot_disconnected_unlocked(current_user)
             if current_user:
                 self.notify_all_friends(current_user)
             try:
@@ -340,6 +458,8 @@ class RelayServer:
     def start(self):
         self.sock.bind((self.host, self.port))
         self.sock.listen(32)
+        watcher = threading.Thread(target=self._timeout_watcher_loop, daemon=True)
+        watcher.start()
         print(f"[Brawler Relay Server] Listening on {self.host}:{self.port}")
         while True:
             conn, addr = self.sock.accept()
