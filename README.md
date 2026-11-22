@@ -24,6 +24,13 @@ This is a 2-player local fighting game project where **P1-Warrior** and **P2-Wiz
 - Tutorial Series: Built by following the amazing tutorial by Coding With Russ. You can check out the tutorial here: https://youtu.be/s5bd9KMSSW4?si=qpVEI6qDXkVGl9bU.
 - Creator: Coding With Russ on YouTube.
 
+## ✨ Current Features
+- **Multiple Game Modes:** Play **LOCAL 2P** on one keyboard, battle the **LOCAL 1P (BOT)** Wizard AI, or play **ONLINE** over a TCP relay server (`server.py`) with Portwarp tunneling support.
+- **Fair Combat & Random Online Matchups:** Equalized horizontal attack reach for Warrior and Wizard, with random Warrior/Wizard assignment in online matches.
+- **Online Lobby, Friend Codes & Invites:** Persistent player profiles saved locally in `Brawler_profile.json` and server-side in `users.json`, unique `BR-...` friend codes, live online/offline friend status, and match invites (`INVITE` / `ACCEPT` / `DECLINE`).
+- **In-Game Instructions & Input Feedback:** Dedicated **INSTRUCTIONS** screen from the main menu and a blinking cursor in username and friend code input boxes.
+- **Environment & Git Privacy:** Network/server configuration loaded via `.env` with `.gitignore` excluding `.env`, `random.txt`, `Brawler_profile.json`, and `users.json`.
+
 ## 🎮 Game Rules, Instructions & How to Play
 ### Match Rules
 - Each match consists of up to **3 rounds**.
@@ -51,8 +58,8 @@ This is a 2-player local fighting game project where **P1-Warrior** and **P2-Wiz
 ## ⚙️ How to Play & Run
 
 ### Option 1: Play via `.exe` (No Python Installation Required)
-1. Download or locate `dist/Brawler.exe` from this repository.
-2. Double-click `Brawler.exe` to launch the game and click **START** on the main menu (or **EXIT** to quit).
+1. Download or locate `dist/Brawler.exe` (v1) or [`dist/Brawler_V2.exe`](dist/Brawler_V2.exe) (v2) from this repository.
+2. Double-click the `.exe` to launch the game and choose a mode or **EXIT** to quit.
 
 ### Option 2: Run From Source
 1. Make sure you have Python and Pygame installed on your system:
