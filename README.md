@@ -23,6 +23,7 @@ This is a 2-player local fighting game project where **P1-Warrior** and **P2-Wiz
 ## 🙏 Acknowledgments & Credits
 - Tutorial Series: Built by following the amazing tutorial by Coding With Russ. You can check out the tutorial here: https://youtu.be/s5bd9KMSSW4?si=qpVEI6qDXkVGl9bU.
 - Creator: Coding With Russ on YouTube.
+- **Note:** The base game was built following the tutorial above, while the additional game modes (**LOCAL 1P (BOT)** and **ONLINE**) and full online multiplayer system (friend codes, invites, relay server, and reconnection handling) were custom-built.
 
 ## ✨ Current Features
 - **Multiple Game Modes:** Play **LOCAL 2P** on one keyboard, battle the **LOCAL 1P (BOT)** Wizard AI, or play **ONLINE** over a TCP relay server (`server.py`) with Portwarp tunneling support.
@@ -65,3 +66,5 @@ This is a 2-player local fighting game project where **P1-Warrior** and **P2-Wiz
 1. Make sure you have Python and Pygame installed on your system:
    ```bash
    pip install pygame
+   python server.py
+   pyhton main.py
